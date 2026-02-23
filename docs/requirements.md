@@ -6,18 +6,19 @@
 
 ### 1. 渲染系统 (Rendering System)
 - 基于 wgpu-native 实现跨平台渲染后端
-- 支持 Vulkan、Metal、DirectX 12、OpenGL 等后端
-- 支持前向渲染和延迟渲染管线
-- PBR (Physically Based Rendering) 材质系统
-- 支持阴影映射 (Shadow Mapping)
-- 后处理效果栈 (Bloom、Tone Mapping、FXAA 等)
-- 支持 2D 和 3D 渲染
+- 支持 Vulkan、Metal、DirectX 12、OpenGL 等后端（由 wgpu-native 自动选择）
+- 前向渲染管线（MVP）
+- 基础材质系统（MVP），PBR 材质（后期目标）
+- 基础光照（方向光、点光源）（MVP），阴影映射（后期目标）
+- 后处理效果栈（后期目标：Bloom、Tone Mapping、FXAA 等）
+- 延迟渲染管线（后期目标）
+- 2D 渲染（后期目标）
 
 ### 2. 窗口与输入管理 (Window & Input Management)
 - 基于 glfw 实现跨平台窗口管理
-- 支持多窗口渲染
-- 完整的输入系统（键盘、鼠标、游戏手柄）
-- 输入映射和动作绑定系统
+- 单窗口渲染（MVP），多窗口渲染（后期目标）
+- 完整的输入系统（键盘、鼠标）（MVP），游戏手柄（后期目标）
+- 输入映射和动作绑定系统（后期目标）
 
 ### 3. ECS 架构 (Entity Component System)
 - **使用 Flecs 4.0+ 作为 ECS 框架**
@@ -30,20 +31,21 @@
 - 支持 Flecs 内置的层级系统和变换模块
 
 ### 4. 资源管理系统 (Resource Management)
-- 异步资源加载
+- 同步资源加载（MVP），异步资源加载（后期目标）
 - 资源缓存和生命周期管理
 - 支持的资源格式：
-  - 纹理：PNG、JPEG、Basis Universal、KTX
-  - 模型：GLTF/GLB、OBJ
-  - 音频：WAV、OGG、MP3
+  - 纹理：PNG、JPEG（MVP），Basis Universal、KTX（后期目标）
+  - 模型：GLTF/GLB（MVP），OBJ（后期目标）
   - 着色器：WGSL
-- 资源热重载支持
+- 资源热重载支持（后期目标）
+
+> **注意**：音频系统（WAV、OGG、MP3）不在当前版本范围内，作为后期独立模块规划。
 
 ### 5. 场景管理 (Scene Management)
 - 场景层级结构（节点树）
 - 场景序列化/反序列化
-- 预制体 (Prefab) 系统
-- 场景切换和过渡效果
+- 预制体 (Prefab) 系统（后期目标）
+- 场景切换（MVP），过渡效果（后期目标）
 
 ### 6. 脚本系统 (Scripting System)
 - 支持 C++ 原生组件扩展
@@ -53,9 +55,10 @@
 ### 7. 核心基础设施 (Core Infrastructure)
 - 事件系统 (Event System)
 - 日志系统 (Logging)
-- 配置管理 (Configuration)
+- 配置管理 (Configuration)（后期目标）
 - 时间管理 (Delta Time、Fixed Timestep)
-- 对象池 (Object Pooling)
+- 对象池 (Object Pooling)（后期目标）
+- 文件系统抽象 (File System Abstraction)
 
 ## User Stories
 
@@ -96,9 +99,8 @@
 - [ ] 能够渲染基本几何体（三角形、立方体）
 - [ ] 能够加载和渲染 GLTF 模型
 - [ ] 能够应用纹理到模型
-- [ ] 实现基本的 PBR 材质
-- [ ] 支持多个光源（方向光、点光源）
-- [ ] 实现基本阴影
+- [ ] 支持基础材质系统
+- [ ] 支持基础光照（方向光、点光源）
 
 ### ECS 系统 (Flecs)
 - [ ] 能够正确集成 Flecs 库
@@ -130,11 +132,13 @@
 - 内存管理：合理的内存占用，支持资源卸载
 
 ### 可移植性 (Portability)
-- 支持 Windows 10/11
-- 支持 Linux (Ubuntu 22.04+)
-- 支持 macOS 12+
+- 支持 Windows 10/11（MVP 首要目标）
+- 支持 Linux (Ubuntu 22.04+)（后期目标，受限于 C++20 模块的编译器支持）
+- 支持 macOS 12+（后期目标，受限于 C++20 模块的编译器支持）
 - 使用 **C++20 标准**
 - 使用 **C++20 模块 (Modules)**
+
+> **注意**：C++20 模块在 GCC/Clang + CMake 上的支持仍不成熟。MVP 阶段以 MSVC (Windows) 为主要目标平台，跨平台支持随编译器生态成熟逐步推进。
 
 ### 可扩展性 (Extensibility)
 - 模块化架构，支持功能扩展
@@ -157,7 +161,7 @@
 ### 构建系统
 - **CMake 3.28+** (支持 C++20 模块)
 - **Ninja** 构建工具
-- 使用 vcpkg 或 Conan 管理第三方依赖
+- 第三方依赖直接下载到 **third_party/** 目录，通过 CMake `add_subdirectory` 集成
 
 ### 语言标准
 - **C++20** (Modules, Concepts, Ranges, std::jthread)
@@ -177,6 +181,7 @@
 | GLM | 0.9.9+ | 数学库 |
 | spdlog | 1.12+ | 日志 |
 | nlohmann/json | 3.x | JSON 解析 |
+| doctest | 2.4+ | 单元测试（header-only） |
 
 ### 可选依赖
 | 库 | 版本 | 用途 |

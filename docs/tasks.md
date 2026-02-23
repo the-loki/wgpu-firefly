@@ -13,9 +13,9 @@
         - *Goal*: 设置 CMake + Ninja 构建环境
         - *Details*: 创建 CMakeLists.txt, CMakePresets.json，配置 C++20 模块支持
         - *Requirements*: C++20, Ninja, CMake 3.28+
-    - [ ] 1.3. 配置 vcpkg 依赖管理
-        - *Goal*: 设置第三方库依赖
-        - *Details*: 创建 vcpkg.json，配置 glfw, flecs, glm, spdlog 等依赖
+    - [ ] 1.3. 下载第三方依赖到 third_party
+        - *Goal*: 将所有第三方库源码/二进制下载到 third_party 目录
+        - *Details*: 下载 glfw, flecs, glm, spdlog, nlohmann_json 源码；下载 wgpu-native 预编译二进制；下载 doctest 头文件
         - *Requirements*: 依赖列表
     - [ ] 1.4. 配置 wgpu-native
         - *Goal*: 集成 wgpu-native 库
@@ -30,7 +30,7 @@
 - [ ] 2. **Core 模块 - 基础类型**
     - [ ] 2.1. 实现基础类型定义 (types.cppm)
         - *Goal*: 定义引擎使用的基础类型别名和工具类
-        - *Details*: i8/i16/i32/i64, u8/u16/u32/u64, f32/f64, String, Ptr, SharedPtr, Result, ScopeExit
+        - *Details*: i8/i16/i32/i64, u8/u16/u32/u64, f32/f64, String, Ptr, SharedPtr, Result（含 void 特化）, ScopeExit
         - *Requirements*: 设计文档 types.cppm
     - [ ] 2.2. 实现日志系统 (logger.cppm)
         - *Goal*: 基于 spdlog 的日志封装
@@ -39,7 +39,7 @@
     - [ ] 2.3. 实现时间管理 (time.cppm)
         - *Goal*: 提供高精度时间和帧时间管理
         - *Details*: DeltaTime, FixedTimestep, FPS 计数，使用 std::chrono
-        - *Requirements*: 时间管理
+        - *Requirements*: 时间管理（主循环依赖此模块）
 
 - [ ] 3. **Core 模块 - 事件系统**
     - [ ] 3.1. 实现事件基类和分发器 (event.cppm)
@@ -66,14 +66,18 @@
         - *Requirements*: 窗口管理
     - [ ] 5.2. 实现窗口事件处理
         - *Goal*: 将 GLFW 回调转换为引擎事件
-        - *Details*: 窗口大小变化、键盘、鼠标事件
-        - *Requirements*: 事件系统
+        - *Details*: 窗口大小变化、关闭、键盘、鼠标按钮、鼠标移动、滚轮事件
+        - *Requirements*: 事件系统（主循环和渲染依赖此功能）
 
-- [ ] 6. **Platform 模块 - 输入系统**
+- [ ] 6. **Platform 模块 - 输入系统与文件系统**
     - [ ] 6.1. 实现 Input 静态类 (input.cppm)
         - *Goal*: 提供全局输入状态查询
-        - *Details*: 键盘状态、鼠标位置和按钮、滚轮、游戏手柄
+        - *Details*: 键盘状态、鼠标位置和按钮、滚轮
         - *Requirements*: 输入系统
+    - [ ] 6.2. 实现 FileSystem 类 (file_system.cppm)
+        - *Goal*: 提供跨平台文件读写和路径解析
+        - *Details*: 文件读写、路径存在性检查、资源路径解析
+        - *Requirements*: 资源加载依赖此模块
 
 ### Phase 4: ECS 模块 (Flecs 封装)
 
@@ -98,10 +102,10 @@
         - *Goal*: 封装 WGPU Instance/Adapter/Device/Surface
         - *Details*: 初始化、资源创建、错误处理
         - *Requirements*: WGPU 封装
-    - [ ] 8.2. 实现 SwapChain 管理
-        - *Goal*: 管理交换链和帧呈现
-        - *Details*: 创建 SwapChain，获取当前纹理，Present
-        - *Requirements*: 帧呈现
+    - [ ] 8.2. 实现 Surface 配置与帧呈现
+        - *Goal*: 管理 Surface 配置和帧呈现
+        - *Details*: 配置 Surface 格式和大小，获取当前纹理（wgpuSurfaceGetCurrentTexture），Present
+        - *Requirements*: 帧呈现（Hello Triangle 依赖此功能）
 
 - [ ] 9. **Renderer 模块 - 资源类型**
     - [ ] 9.1. 实现 Buffer (buffer.cppm)
@@ -223,37 +227,35 @@ Phase 1 (基础设施)
 - 各模块的测试可以在模块完成后立即进行
 
 ### 关键路径
-1. Phase 1 → Phase 2 → Phase 4 → Phase 5 → Phase 8
-2. Phase 1 → Phase 3 → Phase 5
+1. Phase 1 → Phase 2 (含 Time) → Phase 3 (含窗口事件) → Phase 5 (含 Surface) → Phase 8
+2. Phase 1 → Phase 2 → Phase 4 → Phase 5
 
 ## Priority Order
 
 ### P0 - 必须完成 (MVP)
 - 1.1 ~ 1.5 (项目基础设施)
-- 2.1, 2.2 (基础类型、日志)
+- 2.1, 2.2, 2.3 (基础类型、日志、时间管理)
 - 3.1 (事件系统)
 - 4.1 (Application)
-- 5.1 (Window)
+- 5.1, 5.2 (Window、窗口事件)
 - 7.1, 7.2 (ECS 基础)
-- 8.1, 9.1, 9.3, 10.1 (渲染基础)
+- 8.1, 8.2, 9.1, 9.3, 10.1 (渲染基础、Surface 管理)
 - 12.1 (Renderer)
 - 16.1 (Hello Triangle)
 
 ### P1 - 重要功能
-- 6.1 (Input)
+- 4.2 (Engine 单例)
+- 6.1, 6.2 (Input、FileSystem)
+- 7.3 (内置系统：Transform、RenderCollect)
 - 9.2, 10.2, 10.3 (Texture, Pipeline, Material)
 - 11.1, 11.2 (Mesh, Camera)
 - 13.1, 14.1, 14.2 (Resource)
 - 16.2 (Basic Scene)
+- 17.1 (Core 模块测试)
 
 ### P2 - 增强功能
-- 2.3 (Time)
-- 4.2 (Engine 单例)
-- 5.2 (窗口事件)
-- 7.3 (内置系统)
-- 8.2 (SwapChain)
 - 15.1, 15.2 (Scene)
-- 17.1, 17.2 (测试)
+- 17.2 (ECS 模块测试)
 
 ## Notes
 
