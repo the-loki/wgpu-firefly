@@ -9,18 +9,14 @@ auto Engine::instance() -> Engine& {
 
 void Engine::init() {
     if (m_initialized) return;
-    Logger::init();
     m_time.init();
-    Logger::info("Firefly Engine initialized");
     m_initialized = true;
 }
 
 void Engine::shutdown() {
     if (!m_initialized) return;
-    Logger::info("Firefly Engine shutting down");
     m_events.clear();
     m_initialized = false;
-    Logger::shutdown();
 }
 
 } // namespace firefly

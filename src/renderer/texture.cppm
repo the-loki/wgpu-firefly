@@ -10,6 +10,7 @@ export namespace firefly {
 
 enum class TextureFormat : u32 {
     RGBA8Unorm = 0x00000004,
+    RGBA16Float = 0x00000010,
     BGRA8Unorm = 0x00000017,
     Depth24PlusStencil8 = 0x00000028,
     Depth32Float = 0x00000027,
@@ -22,6 +23,22 @@ enum class TextureUsage : u32 {
     StorageBinding = 0x08,
     RenderAttachment = 0x10,
 };
+
+[[nodiscard]] constexpr auto operator|(TextureUsage lhs, TextureUsage rhs) -> TextureUsage {
+    return static_cast<TextureUsage>(
+        static_cast<u32>(lhs) | static_cast<u32>(rhs)
+    );
+}
+
+[[nodiscard]] constexpr auto operator&(TextureUsage lhs, TextureUsage rhs) -> TextureUsage {
+    return static_cast<TextureUsage>(
+        static_cast<u32>(lhs) & static_cast<u32>(rhs)
+    );
+}
+
+[[nodiscard]] constexpr auto has_usage(TextureUsage usage, TextureUsage flag) -> bool {
+    return (static_cast<u32>(usage) & static_cast<u32>(flag)) != 0;
+}
 
 struct TextureDesc {
     String label;

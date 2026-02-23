@@ -56,9 +56,13 @@ public:
         // Check cache
         auto it = m_pathCache.find(path);
         if (it != m_pathCache.end()) {
-            auto& res = m_cache[it->second];
-            res->add_ref();
-            return Handle<T>(it->second);
+            auto cacheIt = m_cache.find(it->second);
+            if (cacheIt != m_cache.end()) {
+                cacheIt->second->add_ref();
+                return Handle<T>(it->second);
+            }
+            // Stale path entry: underlying resource was removed.
+            m_pathCache.erase(it);
         }
         // Find loader
         auto loaderIt = m_loaders.find(std::type_index(typeid(T)));
@@ -87,6 +91,13 @@ public:
             it->second->release();
             if (it->second->ref_count() == 0) {
                 m_cache.erase(it);
+                for (auto pathIt = m_pathCache.begin(); pathIt != m_pathCache.end();) {
+                    if (pathIt->second == handleId) {
+                        pathIt = m_pathCache.erase(pathIt);
+                    } else {
+                        ++pathIt;
+                    }
+                }
             }
         }
     }
@@ -95,7 +106,15 @@ public:
         std::lock_guard lock(m_mutex);
         for (auto it = m_cache.begin(); it != m_cache.end();) {
             if (it->second->ref_count() == 0) {
+                const auto removedId = it->first;
                 it = m_cache.erase(it);
+                for (auto pathIt = m_pathCache.begin(); pathIt != m_pathCache.end();) {
+                    if (pathIt->second == removedId) {
+                        pathIt = m_pathCache.erase(pathIt);
+                    } else {
+                        ++pathIt;
+                    }
+                }
             } else {
                 ++it;
             }

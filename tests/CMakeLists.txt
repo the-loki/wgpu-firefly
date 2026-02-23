@@ -39,6 +39,14 @@ if(MSVC)
 endif()
 add_test(NAME ecs COMMAND test_ecs)
 
+# ECS Engine Components & Phases 测试
+add_executable(test_ecs_engine ecs/test_ecs_engine.cpp)
+target_link_libraries(test_ecs_engine PRIVATE doctest firefly_ecs firefly_app)
+if(MSVC)
+    target_compile_options(test_ecs_engine PRIVATE /W4 /utf-8)
+endif()
+add_test(NAME ecs_engine COMMAND test_ecs_engine)
+
 # Phase 5: Renderer 模块测试 (不需要 GPU 的部分)
 add_executable(test_renderer renderer/test_renderer.cpp)
 target_link_libraries(test_renderer PRIVATE doctest firefly_renderer)

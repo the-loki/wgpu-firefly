@@ -55,7 +55,7 @@ void SceneNode::set_scale(float x, float y, float z) {
 auto SceneNode::get_position() const -> std::tuple<float, float, float> {
     auto* t = m_world.get_component<ecs::Transform>(m_entity);
     if (t) return {t->position.x, t->position.y, t->position.z};
-    return {0, 0, 0};
+    return {0.0f, 0.0f, 0.0f};
 }
 
 } // namespace firefly

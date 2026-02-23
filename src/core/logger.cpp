@@ -26,7 +26,7 @@ void Logger::init(const String& name, LogLevel level) {
 
     s_logger = std::make_shared<spdlog::logger>(name, console_sink);
     s_logger->set_level(to_spdlog_level(level));
-    s_logger->flush_on(spdlog::level::warn);
+    s_logger->flush_on(spdlog::level::info);
 
     spdlog::set_default_logger(s_logger);
 }

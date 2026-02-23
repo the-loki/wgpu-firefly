@@ -18,7 +18,16 @@ public:
     CommandBuffer& operator=(const CommandBuffer&) = delete;
 
     void begin_render_pass(void* textureView, void* depthView = nullptr);
+    void begin_render_pass(void* textureView, void* depthView,
+                           f32 clearR, f32 clearG, f32 clearB, f32 clearA,
+                           bool clearColor = true,
+                           bool clearDepth = true,
+                           f32 depthClearValue = 1.0f);
     void end_render_pass();
+    void begin_compute_pass();
+    void end_compute_pass();
+    void set_compute_pipeline(const ComputePipeline& pipeline);
+    void dispatch(u32 groupCountX, u32 groupCountY = 1, u32 groupCountZ = 1);
 
     void set_pipeline(const RenderPipeline& pipeline);
     void set_vertex_buffer(u32 slot, const Buffer& buffer);
@@ -39,6 +48,7 @@ private:
     friend class RenderDevice;
     void* m_encoder = nullptr;
     void* m_renderPass = nullptr;
+    void* m_computePass = nullptr;
     void* m_device = nullptr;
 };
 

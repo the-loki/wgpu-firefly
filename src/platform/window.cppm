@@ -1,6 +1,6 @@
 module;
 #include <string>
-struct GLFWwindow;
+#include <GLFW/glfw3.h>
 
 export module firefly.platform.window;
 

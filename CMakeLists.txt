@@ -109,11 +109,17 @@ target_sources(firefly_ecs PUBLIC FILE_SET CXX_MODULES FILES
     src/ecs/world.cppm
     src/ecs/components.cppm
     src/ecs/systems.cppm
+    src/ecs/engine_components.cppm
+    src/ecs/phases.cppm
 )
 target_sources(firefly_ecs PRIVATE
     src/ecs/world.cpp
     src/ecs/components.cpp
     src/ecs/systems.cpp
+    src/ecs/phases.cpp
+)
+target_include_directories(firefly_ecs PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glfw/include
 )
 target_link_libraries(firefly_ecs PUBLIC firefly_core flecs_static glm::glm)
 if(MSVC)
@@ -126,6 +132,7 @@ target_sources(firefly_renderer PUBLIC FILE_SET CXX_MODULES FILES
     src/renderer/render.cppm
     src/renderer/buffer.cppm
     src/renderer/texture.cppm
+    src/renderer/sampler.cppm
     src/renderer/shader.cppm
     src/renderer/pipeline.cppm
     src/renderer/command.cppm
@@ -133,11 +140,14 @@ target_sources(firefly_renderer PUBLIC FILE_SET CXX_MODULES FILES
     src/renderer/mesh.cppm
     src/renderer/camera.cppm
     src/renderer/device.cppm
+    src/renderer/render_graph.cppm
+    src/renderer/forward_renderer.cppm
     src/renderer/renderer.cppm
 )
 target_sources(firefly_renderer PRIVATE
     src/renderer/buffer.cpp
     src/renderer/texture.cpp
+    src/renderer/sampler.cpp
     src/renderer/shader.cpp
     src/renderer/pipeline.cpp
     src/renderer/command.cpp
@@ -145,9 +155,14 @@ target_sources(firefly_renderer PRIVATE
     src/renderer/mesh.cpp
     src/renderer/camera.cpp
     src/renderer/device.cpp
+    src/renderer/render_graph.cpp
+    src/renderer/forward_renderer.cpp
     src/renderer/renderer.cpp
 )
 target_link_libraries(firefly_renderer PUBLIC firefly_core firefly_ecs wgpu_native glm::glm)
+target_compile_definitions(firefly_renderer PRIVATE
+    FIREFLY_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+)
 if(MSVC)
     target_compile_options(firefly_renderer PRIVATE /W4 /utf-8)
 endif()
@@ -182,6 +197,23 @@ target_sources(firefly_scene PRIVATE
 target_link_libraries(firefly_scene PUBLIC firefly_core firefly_ecs)
 if(MSVC)
     target_compile_options(firefly_scene PRIVATE /W4 /utf-8)
+endif()
+
+# App 模块 (ECS-driven engine, depends on everything)
+add_library(firefly_app STATIC)
+target_sources(firefly_app PUBLIC FILE_SET CXX_MODULES FILES
+    src/ecs/engine_systems.cppm
+    src/core/app.cppm
+)
+target_sources(firefly_app PRIVATE
+    src/ecs/engine_systems.cpp
+    src/core/app.cpp
+)
+target_link_libraries(firefly_app PUBLIC
+    firefly_core firefly_ecs firefly_renderer firefly_platform glfw
+)
+if(MSVC)
+    target_compile_options(firefly_app PRIVATE /W4 /utf-8)
 endif()
 
 # ============ 测试 ============

@@ -24,4 +24,22 @@ RenderPipeline& RenderPipeline::operator=(RenderPipeline&& other) noexcept {
     return *this;
 }
 
+ComputePipeline::~ComputePipeline() {
+    if (m_pipeline) wgpuComputePipelineRelease(static_cast<WGPUComputePipeline>(m_pipeline));
+}
+
+ComputePipeline::ComputePipeline(ComputePipeline&& other) noexcept
+    : m_pipeline(other.m_pipeline) {
+    other.m_pipeline = nullptr;
+}
+
+ComputePipeline& ComputePipeline::operator=(ComputePipeline&& other) noexcept {
+    if (this != &other) {
+        if (m_pipeline) wgpuComputePipelineRelease(static_cast<WGPUComputePipeline>(m_pipeline));
+        m_pipeline = other.m_pipeline;
+        other.m_pipeline = nullptr;
+    }
+    return *this;
+}
+
 } // namespace firefly

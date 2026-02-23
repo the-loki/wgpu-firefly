@@ -22,10 +22,27 @@ struct TestResource : public firefly::Resource {
 class TestLoader : public firefly::LoaderBase {
 public:
     auto load(const firefly::String& path) -> firefly::SharedPtr<firefly::Resource> override {
+        (void)path;
         auto res = std::make_shared<TestResource>();
         res->value = 42;
         return res;
     }
+};
+
+class CountingLoader : public firefly::LoaderBase {
+public:
+    explicit CountingLoader(int* count) : m_count(count) {}
+
+    auto load(const firefly::String& path) -> firefly::SharedPtr<firefly::Resource> override {
+        (void)path;
+        if (m_count) {
+            ++(*m_count);
+        }
+        return std::make_shared<TestResource>();
+    }
+
+private:
+    int* m_count = nullptr;
 };
 
 TEST_SUITE("Handle") {
@@ -123,6 +140,30 @@ TEST_SUITE("ResourceManager") {
         firefly::ResourceManager mgr;
         auto handle = mgr.load<TestResource>("no_loader.dat");
         CHECK_FALSE(handle.is_valid());
+    }
+
+    TEST_CASE("reload after unload with same path") {
+        firefly::ResourceManager mgr;
+        int loadCount = 0;
+        mgr.register_loader_for(
+            std::type_index(typeid(TestResource)),
+            std::make_unique<CountingLoader>(&loadCount));
+
+        auto first = mgr.load<TestResource>("assets/reload.dat");
+        auto secondRef = mgr.load<TestResource>("assets/reload.dat");
+        CHECK(first.is_valid());
+        CHECK(first == secondRef);
+        CHECK(loadCount == 1);
+
+        mgr.unload(first.id());
+        CHECK(mgr.cache_size() == 1);
+        mgr.unload(secondRef.id());
+        CHECK(mgr.cache_size() == 0);
+
+        auto reloaded = mgr.load<TestResource>("assets/reload.dat");
+        CHECK(reloaded.is_valid());
+        CHECK(reloaded != first);
+        CHECK(loadCount == 2);
     }
 }
 

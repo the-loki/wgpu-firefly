@@ -146,6 +146,74 @@ firefly/
     └── doctest/                    # header-only (doctest.h)
 ```
 
+## ECS-Driven Engine Architecture (Current)
+
+引擎已从传统 OOP 架构（单例/静态类）重构为纯 ECS 驱动架构。所有引擎子系统（窗口、输入、时间、渲染）均以 Flecs 单例组件 + 系统实现，主循环由 `world.progress()` 驱动。
+
+### App API
+
+```cpp
+firefly::App app;
+app.configure({.title = "My Game", .width = 1280, .height = 720});
+app.setup([](flecs::world& world) {
+    // 用户注册自定义系统和实体
+});
+return app.run();
+```
+
+### 引擎单例组件 (engine_components.cppm)
+
+| 组件 | 说明 |
+|------|------|
+| `WindowConfig` | 窗口配置：title, width, height, fullscreen, vsync, resizable |
+| `WindowState` | 窗口运行状态：GLFWwindow* handle, width, height, should_close, resized |
+| `InputState` | 输入状态：current/previous keys/buttons, mouse_pos/delta, scroll + 查询方法 |
+| `TimeState` | 时间状态：fps, total_frame_count, total_time, fixed_delta_time |
+| `RenderConfig` | 渲染配置：enable_validation, enable_vsync |
+| `RenderState` | 渲染状态：SharedPtr\<void\> device (类型擦除), clear_color, initialized |
+
+### Flecs Phase 管线 (phases.cppm)
+
+```
+OnStart    → WindowInit, RenderInit (一次性初始化)
+OnLoad     → PollEvents (GLFW 事件轮询)
+PreUpdate  → InputProcess (输入状态切换), TimeUpdate (FPS/固定步长)
+OnUpdate   → 用户游戏逻辑
+OnStore    → RenderBegin → 用户渲染 → RenderEnd
+```
+
+自定义 phases 通过 `EnginePhases` 单例组件存储，用户系统可引用：
+```cpp
+const auto* phases = world.get<firefly::ecs::EnginePhases>();
+world.system("MyRender").kind(phases->render_end).run(...);
+```
+
+### GLFW 回调方案
+
+通过 `glfwSetWindowUserPointer(window, world.c_ptr())` 存储 Flecs world 指针。回调中通过 `flecs::world(raw_ptr)` 创建共享所有权 wrapper 访问单例组件。
+
+### CMake 库结构
+
+| 库 | 说明 | 依赖 |
+|---|---|---|
+| `firefly_core` | 基础类型、日志、事件、时间 | spdlog, glm, nlohmann_json |
+| `firefly_ecs` | ECS 封装 + 引擎组件/phases | firefly_core, flecs |
+| `firefly_platform` | 窗口、输入、文件系统 (旧 OOP 类) | firefly_core, glfw |
+| `firefly_renderer` | WGPU 渲染设备/管线/命令 | firefly_core, firefly_ecs, wgpu_native |
+| `firefly_app` | ECS 引擎系统 + App 类 | firefly_core, firefly_ecs, firefly_renderer, firefly_platform, glfw |
+
+`firefly_app` 使用 `SharedPtr<void>` 类型擦除 RenderDevice，避免 firefly_ecs 与 firefly_renderer 之间的循环依赖。
+
+### 新增文件
+
+| 文件 | 说明 |
+|------|------|
+| `src/ecs/engine_components.cppm` | 引擎单例组件定义 |
+| `src/ecs/phases.cppm` / `phases.cpp` | 自定义 Flecs phases |
+| `src/ecs/engine_systems.cppm` / `engine_systems.cpp` | 引擎系统实现 |
+| `src/core/app.cppm` / `app.cpp` | App 类 |
+| `tests/ecs/test_ecs_engine.cpp` | 引擎 ECS 测试 |
+
 ## Components and Interfaces
 
 ### 1. Core Module

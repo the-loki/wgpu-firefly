@@ -1,9 +1,8 @@
 module;
+#include <cstddef>
 #include <GLFW/glfw3.h>
 
 module firefly.platform.window;
-
-import firefly.core.logger;
 
 namespace firefly {
 
@@ -13,7 +12,6 @@ Window::Window(const WindowConfig& config)
     : m_width(config.width), m_height(config.height) {
     if (!s_glfwInitialized) {
         if (!glfwInit()) {
-            Logger::fatal("Failed to initialize GLFW");
             return;
         }
         s_glfwInitialized = true;
@@ -31,13 +29,11 @@ Window::Window(const WindowConfig& config)
     );
 
     if (!m_window) {
-        Logger::fatal("Failed to create GLFW window");
         return;
     }
 
     glfwSetWindowUserPointer(m_window, this);
     setup_callbacks();
-    Logger::info("Window created: {}x{}", config.width, config.height);
 }
 
 Window::~Window() {
