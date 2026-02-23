@@ -94,17 +94,23 @@ firefly/
 │   │       └── script.cppm/.cpp
 │   │
 │   ├── renderer/                   # Renderer 模块
-│   │   ├── renderer.cppm           # 模块接口
-│   │   ├── device.cppm/.cpp        # WGPU 设备封装
-│   │   ├── pipeline.cppm/.cpp      # 渲染管线
-│   │   ├── command.cppm/.cpp       # 命令缓冲
-│   │   ├── buffer.cppm/.cpp        # 缓冲区
-│   │   ├── texture.cppm/.cpp       # 纹理
-│   │   ├── shader.cppm/.cpp        # 着色器
-│   │   ├── material.cppm/.cpp      # 材质
-│   │   ├── mesh.cppm/.cpp          # 网格
-│   │   ├── camera.cppm/.cpp        # 相机
-│   │   └── lighting.cppm/.cpp      # 光照
+│   │   ├── render.cppm             # 模块聚合入口
+│   │   ├── core/                   # 渲染流程核心
+│   │   │   ├── renderer.cppm/.cpp
+│   │   │   ├── render_graph.cppm/.cpp
+│   │   │   └── forward_renderer.cppm/.cpp
+│   │   ├── gpu/                    # WGPU 资源与命令封装
+│   │   │   ├── device.cppm/.cpp
+│   │   │   ├── command.cppm/.cpp
+│   │   │   ├── pipeline.cppm/.cpp
+│   │   │   ├── buffer.cppm/.cpp
+│   │   │   ├── texture.cppm/.cpp
+│   │   │   ├── sampler.cppm/.cpp
+│   │   │   └── shader.cppm/.cpp
+│   │   └── scene/                  # 渲染场景数据
+│   │       ├── material.cppm/.cpp
+│   │       ├── mesh.cppm/.cpp
+│   │       └── camera.cppm/.cpp
 │   │
 │   ├── scene/                      # Scene 模块
 │   │   ├── scene.cppm              # 模块接口
@@ -127,13 +133,18 @@ firefly/
 │
 ├── tests/                          # 单元测试
 │   ├── CMakeLists.txt
+│   ├── build/
 │   ├── core/
 │   ├── ecs/
+│   ├── integration/
+│   ├── platform/
+│   ├── resource/
+│   ├── scene/
 │   └── renderer/
 │
 ├── examples/                       # 示例程序
+│   ├── forward_sphere/
 │   ├── hello_triangle/
-│   └── basic_scene/
 │
 └── third_party/                    # 第三方库（直接下载源码）
     ├── wgpu-native/                # 预编译二进制 + 头文件
@@ -1359,23 +1370,33 @@ set(FIREFLY_MODULE_SOURCES
     src/ecs/world.cpp
     src/ecs/components.cppm
     src/ecs/systems.cppm
-    src/renderer/renderer.cppm
-    src/renderer/device.cppm
-    src/renderer/device.cpp
-    src/renderer/pipeline.cppm
-    src/renderer/pipeline.cpp
-    src/renderer/command.cppm
-    src/renderer/command.cpp
-    src/renderer/buffer.cppm
-    src/renderer/buffer.cpp
-    src/renderer/texture.cppm
-    src/renderer/texture.cpp
-    src/renderer/shader.cppm
-    src/renderer/shader.cpp
-    src/renderer/material.cppm
-    src/renderer/material.cpp
-    src/renderer/mesh.cppm
-    src/renderer/mesh.cpp
+    src/renderer/render.cppm
+    src/renderer/core/renderer.cppm
+    src/renderer/core/renderer.cpp
+    src/renderer/core/render_graph.cppm
+    src/renderer/core/render_graph.cpp
+    src/renderer/core/forward_renderer.cppm
+    src/renderer/core/forward_renderer.cpp
+    src/renderer/gpu/device.cppm
+    src/renderer/gpu/device.cpp
+    src/renderer/gpu/pipeline.cppm
+    src/renderer/gpu/pipeline.cpp
+    src/renderer/gpu/command.cppm
+    src/renderer/gpu/command.cpp
+    src/renderer/gpu/buffer.cppm
+    src/renderer/gpu/buffer.cpp
+    src/renderer/gpu/texture.cppm
+    src/renderer/gpu/texture.cpp
+    src/renderer/gpu/sampler.cppm
+    src/renderer/gpu/sampler.cpp
+    src/renderer/gpu/shader.cppm
+    src/renderer/gpu/shader.cpp
+    src/renderer/scene/material.cppm
+    src/renderer/scene/material.cpp
+    src/renderer/scene/mesh.cppm
+    src/renderer/scene/mesh.cpp
+    src/renderer/scene/camera.cppm
+    src/renderer/scene/camera.cpp
     src/scene/scene.cppm
     src/scene/scene_manager.cppm
     src/scene/scene_manager.cpp

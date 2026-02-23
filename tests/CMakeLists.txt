@@ -2,7 +2,7 @@
 
 # Phase 1: 构建系统验证测试
 add_executable(test_build_verification
-    build_verification_test.cpp
+    build/build_verification_test.cpp
 )
 target_link_libraries(test_build_verification PRIVATE
     doctest
@@ -81,7 +81,7 @@ endif()
 add_test(NAME scene COMMAND test_scene)
 
 # Phase 8: 集成测试
-add_executable(test_integration test_integration.cpp)
+add_executable(test_integration integration/test_integration.cpp)
 target_link_libraries(test_integration PRIVATE
     doctest
     firefly_core

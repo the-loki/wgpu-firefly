@@ -1,7 +1,7 @@
 # Firefly 示例程序
 
 # Hello Triangle (ECS-driven)
-add_executable(hello_triangle hello_triangle.cpp)
+add_executable(hello_triangle hello_triangle/main.cpp)
 target_link_libraries(hello_triangle PRIVATE
     firefly_app
 )
@@ -10,7 +10,7 @@ if(MSVC)
 endif()
 
 # Forward Sphere (ECS-driven, renderer-only usage)
-add_executable(forward_sphere forward_sphere.cpp)
+add_executable(forward_sphere forward_sphere/main.cpp)
 target_link_libraries(forward_sphere PRIVATE
     firefly_app
 )

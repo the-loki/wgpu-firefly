@@ -135,34 +135,34 @@ endif()
 add_library(firefly_renderer STATIC)
 target_sources(firefly_renderer PUBLIC FILE_SET CXX_MODULES FILES
     src/renderer/render.cppm
-    src/renderer/buffer.cppm
-    src/renderer/texture.cppm
-    src/renderer/sampler.cppm
-    src/renderer/shader.cppm
-    src/renderer/pipeline.cppm
-    src/renderer/command.cppm
-    src/renderer/material.cppm
-    src/renderer/mesh.cppm
-    src/renderer/camera.cppm
-    src/renderer/device.cppm
-    src/renderer/render_graph.cppm
-    src/renderer/forward_renderer.cppm
-    src/renderer/renderer.cppm
+    src/renderer/gpu/buffer.cppm
+    src/renderer/gpu/texture.cppm
+    src/renderer/gpu/sampler.cppm
+    src/renderer/gpu/shader.cppm
+    src/renderer/gpu/pipeline.cppm
+    src/renderer/gpu/command.cppm
+    src/renderer/scene/material.cppm
+    src/renderer/scene/mesh.cppm
+    src/renderer/scene/camera.cppm
+    src/renderer/gpu/device.cppm
+    src/renderer/core/render_graph.cppm
+    src/renderer/core/forward_renderer.cppm
+    src/renderer/core/renderer.cppm
 )
 target_sources(firefly_renderer PRIVATE
-    src/renderer/buffer.cpp
-    src/renderer/texture.cpp
-    src/renderer/sampler.cpp
-    src/renderer/shader.cpp
-    src/renderer/pipeline.cpp
-    src/renderer/command.cpp
-    src/renderer/material.cpp
-    src/renderer/mesh.cpp
-    src/renderer/camera.cpp
-    src/renderer/device.cpp
-    src/renderer/render_graph.cpp
-    src/renderer/forward_renderer.cpp
-    src/renderer/renderer.cpp
+    src/renderer/gpu/buffer.cpp
+    src/renderer/gpu/texture.cpp
+    src/renderer/gpu/sampler.cpp
+    src/renderer/gpu/shader.cpp
+    src/renderer/gpu/pipeline.cpp
+    src/renderer/gpu/command.cpp
+    src/renderer/scene/material.cpp
+    src/renderer/scene/mesh.cpp
+    src/renderer/scene/camera.cpp
+    src/renderer/gpu/device.cpp
+    src/renderer/core/render_graph.cpp
+    src/renderer/core/forward_renderer.cpp
+    src/renderer/core/renderer.cpp
 )
 target_link_libraries(firefly_renderer PUBLIC firefly_core firefly_ecs wgpu_native glm::glm)
 target_compile_definitions(firefly_renderer PRIVATE
