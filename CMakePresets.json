@@ -8,6 +8,7 @@
             "cacheVariables": {
                 "CMAKE_CXX_COMPILER": "cl",
                 "CMAKE_C_COMPILER": "cl",
+                "CMAKE_MAKE_PROGRAM": "${sourceDir}/tools/ninja/ninja.exe",
                 "CMAKE_CXX_STANDARD": "20",
                 "CMAKE_CXX_STANDARD_REQUIRED": "ON",
                 "CMAKE_CXX_SCAN_FOR_MODULES": "ON",

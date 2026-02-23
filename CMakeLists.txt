@@ -6,6 +6,11 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_SCAN_FOR_MODULES ON)
 
+# MSVC 下统一开启标准 C++ 异常语义，避免 doctest 等依赖触发静态断言
+if(MSVC)
+    add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:/EHsc>")
+endif()
+
 # 导出编译命令 (用于 IDE 集成)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
