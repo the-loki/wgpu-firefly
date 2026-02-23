@@ -99,4 +99,5 @@ Desktop.ini
 *~
 
 # ===== 第三方依赖 =====
-third_party/
+!third_party/
+!third_party/**
