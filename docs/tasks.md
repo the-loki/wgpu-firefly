@@ -4,55 +4,55 @@
 
 ### Phase 1: 项目基础设施
 
-- [ ] 1. **项目初始化与构建系统**
-    - [ ] 1.1. 创建项目目录结构
+- [x] 1. **项目初始化与构建系统**
+    - [x] 1.1. 创建项目目录结构
         - *Goal*: 建立完整的源码、测试、示例目录结构
         - *Details*: 创建 src/, tests/, examples/, third_party/ 等目录，按模块划分
         - *Requirements*: 设计文档目录结构
-    - [ ] 1.2. 配置 CMake 构建系统
+    - [x] 1.2. 配置 CMake 构建系统
         - *Goal*: 设置 CMake + Ninja 构建环境
         - *Details*: 创建 CMakeLists.txt, CMakePresets.json，配置 C++20 模块支持
         - *Requirements*: C++20, Ninja, CMake 3.28+
-    - [ ] 1.3. 下载第三方依赖到 third_party
+    - [x] 1.3. 下载第三方依赖到 third_party
         - *Goal*: 将所有第三方库源码/二进制下载到 third_party 目录
         - *Details*: 下载 glfw, flecs, glm, spdlog, nlohmann_json 源码；下载 wgpu-native 预编译二进制；下载 doctest 头文件
         - *Requirements*: 依赖列表
-    - [ ] 1.4. 配置 wgpu-native
+    - [x] 1.4. 配置 wgpu-native
         - *Goal*: 集成 wgpu-native 库
         - *Details*: 下载或编译 wgpu-native，配置头文件和库文件路径
         - *Requirements*: wgpu-native 22.0+
-    - [ ] 1.5. 验证构建系统
+    - [x] 1.5. 验证构建系统
         - *Goal*: 确保项目能够成功构建
         - *Details*: 运行 cmake --preset=default && cmake --build --preset=debug
 
 ### Phase 2: 核心模块 (Core Module)
 
-- [ ] 2. **Core 模块 - 基础类型**
-    - [ ] 2.1. 实现基础类型定义 (types.cppm)
+- [x] 2. **Core 模块 - 基础类型**
+    - [x] 2.1. 实现基础类型定义 (types.cppm)
         - *Goal*: 定义引擎使用的基础类型别名和工具类
         - *Details*: i8/i16/i32/i64, u8/u16/u32/u64, f32/f64, String, Ptr, SharedPtr, Result（含 void 特化）, ScopeExit
         - *Requirements*: 设计文档 types.cppm
-    - [ ] 2.2. 实现日志系统 (logger.cppm)
+    - [x] 2.2. 实现日志系统 (logger.cppm)
         - *Goal*: 基于 spdlog 的日志封装
         - *Details*: 支持 Trace/Debug/Info/Warn/Error/Fatal 级别，支持文件和控制台输出
         - *Requirements*: 日志系统
-    - [ ] 2.3. 实现时间管理 (time.cppm)
+    - [x] 2.3. 实现时间管理 (time.cppm)
         - *Goal*: 提供高精度时间和帧时间管理
         - *Details*: DeltaTime, FixedTimestep, FPS 计数，使用 std::chrono
         - *Requirements*: 时间管理（主循环依赖此模块）
 
-- [ ] 3. **Core 模块 - 事件系统**
-    - [ ] 3.1. 实现事件基类和分发器 (event.cppm)
+- [x] 3. **Core 模块 - 事件系统**
+    - [x] 3.1. 实现事件基类和分发器 (event.cppm)
         - *Goal*: 提供灵活的事件订阅/发布机制
         - *Details*: Event 基类, EventDispatcher 模板, 常用事件类型
         - *Requirements*: 事件系统
 
-- [ ] 4. **Core 模块 - 应用程序框架**
+- [x] 4. **Core 模块 - 应用程序框架**
     - [ ] 4.1. 实现 Application 类 (application.cppm)
         - *Goal*: 提供应用程序生命周期管理
         - *Details*: OnInit/OnUpdate/OnRender/OnShutdown 回调，主循环，配置加载
         - *Requirements*: Application 设计
-    - [ ] 4.2. 实现 Engine 单例 (engine.cppm)
+    - [x] 4.2. 实现 Engine 单例 (engine.cppm)
         - *Goal*: 提供全局引擎访问点
         - *Details*: 单例模式，管理核心系统实例
         - *Requirements*: Engine 设计

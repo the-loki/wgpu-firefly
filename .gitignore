@@ -97,3 +97,6 @@ Desktop.ini
 *.swp
 *.swo
 *~
+
+# ===== 第三方依赖 =====
+third_party/
