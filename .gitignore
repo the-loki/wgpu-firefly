@@ -105,4 +105,4 @@ Desktop.ini
 # ===== 示例模型资源 =====
 !assets/models/
 !assets/models/*.obj
-assets/models/*.glb
+!assets/models/*.glb
