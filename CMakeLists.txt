@@ -56,6 +56,19 @@ else()
 endif()
 target_include_directories(wgpu_native INTERFACE "${WGPU_NATIVE_DIR}")
 
+# assimp (预编译二进制 + 头文件，运行时动态加载)
+set(ASSIMP_NATIVE_DIR "${CMAKE_SOURCE_DIR}/third_party/assimp")
+set(ASSIMP_NATIVE_DLL "${ASSIMP_NATIVE_DIR}/bin/assimp-vc143-mt.dll")
+set(ASSIMP_GENERATED_INCLUDE_DIR "${CMAKE_BINARY_DIR}/generated/assimp")
+file(MAKE_DIRECTORY "${ASSIMP_GENERATED_INCLUDE_DIR}/assimp")
+file(READ "${ASSIMP_NATIVE_DIR}/include/assimp/config.h.in" ASSIMP_CONFIG_CONTENT)
+string(REPLACE
+    "#cmakedefine ASSIMP_DOUBLE_PRECISION 1"
+    "/* #undef ASSIMP_DOUBLE_PRECISION */"
+    ASSIMP_CONFIG_CONTENT
+    "${ASSIMP_CONFIG_CONTENT}")
+file(WRITE "${ASSIMP_GENERATED_INCLUDE_DIR}/assimp/config.h" "${ASSIMP_CONFIG_CONTENT}")
+
 # doctest (header-only, 用于测试)
 add_library(doctest INTERFACE)
 target_include_directories(doctest INTERFACE third_party/doctest)
@@ -178,11 +191,20 @@ target_sources(firefly_resource PUBLIC FILE_SET CXX_MODULES FILES
     src/resource/resource.cppm
     src/resource/manager.cppm
     src/resource/texture_importer.cppm
+    src/resource/model_importer.cppm
 )
 target_sources(firefly_resource PRIVATE
     src/resource/texture_importer.cpp
+    src/resource/model_importer.cpp
 )
-target_include_directories(firefly_resource PRIVATE third_party)
+target_include_directories(firefly_resource PRIVATE
+    third_party
+    "${ASSIMP_GENERATED_INCLUDE_DIR}"
+    "${ASSIMP_NATIVE_DIR}/include"
+)
+target_compile_definitions(firefly_resource PRIVATE
+    FIREFLY_ASSIMP_DLL_PATH="${ASSIMP_NATIVE_DLL}"
+)
 target_link_libraries(firefly_resource PUBLIC firefly_core)
 if(MSVC)
     target_compile_options(firefly_resource PRIVATE /W4 /utf-8)

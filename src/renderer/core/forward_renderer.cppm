@@ -99,6 +99,9 @@ public:
     void set_object(const ForwardObjectParams& object);
     void set_grid_params(const ForwardGridParams& params);
     void set_shadow_settings(const ForwardShadowSettings& settings);
+    auto set_mesh_data(const std::vector<Vertex>& vertices, const std::vector<u32>& indices)
+        -> Result<void>;
+    auto reset_mesh_to_default_sphere() -> Result<void>;
     auto render_frame(u32 width, u32 height) -> Result<void>;
     void invalidate_frame_graph();
 
@@ -135,6 +138,10 @@ private:
         const String& passName = "ForwardTonemapPass") -> Result<RenderGraphPassHandle>;
 
     auto build_default_sphere_mesh() -> Result<void>;
+    auto upload_mesh_to_gpu(
+        const std::vector<Vertex>& vertices,
+        const std::vector<u32>& indices,
+        StringView labelPrefix) -> Result<void>;
     void update_light_cascade_matrices(const glm::vec3& lightDirection);
     auto rebuild_frame_graph(u32 width, u32 height) -> Result<void>;
     void upload_global_uniforms();

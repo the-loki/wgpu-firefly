@@ -976,6 +976,17 @@ TEST_SUITE("Forward Renderer API") {
         });
         CHECK(forward.recommended_shadow_depth_desc().format == firefly::TextureFormat::Depth32Float);
     }
+
+    TEST_CASE("set_mesh_data returns error when renderer is not initialized") {
+        firefly::ForwardRenderer forward;
+        std::vector<firefly::Vertex> vertices = {
+            {glm::vec3(-1.0f, -1.0f, 0.0f)},
+            {glm::vec3(1.0f, -1.0f, 0.0f)},
+            {glm::vec3(0.0f, 1.0f, 0.0f)},
+        };
+        std::vector<firefly::u32> indices = {0, 1, 2};
+        CHECK(forward.set_mesh_data(vertices, indices).is_error());
+    }
 }
 
 TEST_SUITE("Forward Renderer") {

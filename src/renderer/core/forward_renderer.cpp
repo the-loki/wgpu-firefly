@@ -169,6 +169,12 @@ auto ForwardRenderer::initialize(RenderDevice& device, TextureFormat colorFormat
          .format = VertexFormat::Float32x3},
         {.location = 2, .offset = static_cast<u32>(offsetof(Vertex, texCoord)),
          .format = VertexFormat::Float32x2},
+        {.location = 3, .offset = static_cast<u32>(offsetof(Vertex, color)),
+         .format = VertexFormat::Float32x4},
+        {.location = 4, .offset = static_cast<u32>(offsetof(Vertex, emissive)),
+         .format = VertexFormat::Float32x3},
+        {.location = 5, .offset = static_cast<u32>(offsetof(Vertex, metallic)),
+         .format = VertexFormat::Float32x3},
     };
     pipelineDesc.vertexBuffers = {layout};
 
@@ -504,6 +510,33 @@ void ForwardRenderer::set_shadow_settings(const ForwardShadowSettings& settings)
     update_light_cascade_matrices(m_primaryLightDirection);
     m_frameGraphDirty = true;
     upload_global_uniforms();
+}
+
+auto ForwardRenderer::set_mesh_data(
+    const std::vector<Vertex>& vertices,
+    const std::vector<u32>& indices) -> Result<void> {
+    if (!m_device) {
+        return Result<void>::error("Forward renderer is not initialized");
+    }
+    if (vertices.empty()) {
+        return Result<void>::error("Forward mesh vertices must not be empty");
+    }
+    if (indices.empty()) {
+        return Result<void>::error("Forward mesh indices must not be empty");
+    }
+    for (const auto index : indices) {
+        if (index >= vertices.size()) {
+            return Result<void>::error("Forward mesh contains out-of-range index");
+        }
+    }
+    return upload_mesh_to_gpu(vertices, indices, "ForwardCustomMesh");
+}
+
+auto ForwardRenderer::reset_mesh_to_default_sphere() -> Result<void> {
+    if (!m_device) {
+        return Result<void>::error("Forward renderer is not initialized");
+    }
+    return build_default_sphere_mesh();
 }
 
 void ForwardRenderer::invalidate_frame_graph() {
@@ -967,30 +1000,50 @@ auto ForwardRenderer::build_default_sphere_mesh() -> Result<void> {
         }
     }
 
-    m_indexCount = static_cast<u32>(indices.size());
-    if (m_indexCount == 0 || vertices.empty()) {
+    if (indices.empty() || vertices.empty()) {
         return Result<void>::error("Generated forward sphere mesh is empty");
     }
+    return upload_mesh_to_gpu(vertices, indices, "ForwardSphere");
+}
+
+auto ForwardRenderer::upload_mesh_to_gpu(
+    const std::vector<Vertex>& vertices,
+    const std::vector<u32>& indices,
+    StringView labelPrefix) -> Result<void> {
+    if (!m_device) {
+        return Result<void>::error("Forward renderer has no render device");
+    }
+    if (vertices.empty()) {
+        return Result<void>::error("Forward mesh upload requires non-empty vertex data");
+    }
+    if (indices.empty()) {
+        return Result<void>::error("Forward mesh upload requires non-empty index data");
+    }
+
+    m_indexCount = static_cast<u32>(indices.size());
 
     BufferDesc vertexDesc;
-    vertexDesc.label = "ForwardSphereVertexBuffer";
+    vertexDesc.label = String(labelPrefix) + "VertexBuffer";
     vertexDesc.size = static_cast<u64>(vertices.size()) * sizeof(Vertex);
     vertexDesc.usage = BufferUsage::Vertex;
-    m_vertexBuffer = m_device->create_buffer(vertexDesc);
-    if (!m_vertexBuffer || !m_vertexBuffer->native_handle()) {
+    auto newVertexBuffer = m_device->create_buffer(vertexDesc);
+    if (!newVertexBuffer || !newVertexBuffer->native_handle()) {
         return Result<void>::error("Failed to create forward vertex buffer");
     }
-    m_vertexBuffer->write(vertices.data(), vertexDesc.size);
+    newVertexBuffer->write(vertices.data(), vertexDesc.size);
 
     BufferDesc indexDesc;
-    indexDesc.label = "ForwardSphereIndexBuffer";
+    indexDesc.label = String(labelPrefix) + "IndexBuffer";
     indexDesc.size = static_cast<u64>(indices.size()) * sizeof(u32);
     indexDesc.usage = BufferUsage::Index;
-    m_indexBuffer = m_device->create_buffer(indexDesc);
-    if (!m_indexBuffer || !m_indexBuffer->native_handle()) {
+    auto newIndexBuffer = m_device->create_buffer(indexDesc);
+    if (!newIndexBuffer || !newIndexBuffer->native_handle()) {
         return Result<void>::error("Failed to create forward index buffer");
     }
-    m_indexBuffer->write(indices.data(), indexDesc.size);
+    newIndexBuffer->write(indices.data(), indexDesc.size);
+
+    m_vertexBuffer = std::move(newVertexBuffer);
+    m_indexBuffer = std::move(newIndexBuffer);
 
     return Result<void>::ok();
 }

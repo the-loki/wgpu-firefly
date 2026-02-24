@@ -3,11 +3,15 @@
 
 import firefly.resource.manager;
 import firefly.resource.texture_importer;
+import firefly.resource.model_importer;
 import firefly.core.types;
 
+#include <filesystem>
+#include <algorithm>
 #include <string>
 #include <memory>
 #include <typeindex>
+#include <vector>
 
 // ============================================================
 // Phase 6: Resource 模块测试
@@ -44,6 +48,42 @@ public:
 private:
     int* m_count = nullptr;
 };
+
+static auto find_model_asset_path() -> std::string {
+    std::vector<std::filesystem::path> candidates;
+    candidates.emplace_back("assets/models/cube.obj");
+#ifdef FIREFLY_SOURCE_DIR
+    candidates.emplace_back(std::filesystem::path(FIREFLY_SOURCE_DIR) / "assets/models/cube.obj");
+#endif
+    candidates.emplace_back(std::filesystem::path("..") / "assets/models/cube.obj");
+    candidates.emplace_back(std::filesystem::path("..") / ".." / "assets/models/cube.obj");
+    candidates.emplace_back(std::filesystem::path("..") / ".." / ".." / "assets/models/cube.obj");
+
+    for (const auto& candidate : candidates) {
+        if (std::filesystem::exists(candidate)) {
+            return candidate.string();
+        }
+    }
+    return {};
+}
+
+static auto find_sponza_asset_path() -> std::string {
+    std::vector<std::filesystem::path> candidates;
+    candidates.emplace_back("assets/models/sponza-png.glb");
+#ifdef FIREFLY_SOURCE_DIR
+    candidates.emplace_back(std::filesystem::path(FIREFLY_SOURCE_DIR) / "assets/models/sponza-png.glb");
+#endif
+    candidates.emplace_back(std::filesystem::path("..") / "assets/models/sponza-png.glb");
+    candidates.emplace_back(std::filesystem::path("..") / ".." / "assets/models/sponza-png.glb");
+    candidates.emplace_back(std::filesystem::path("..") / ".." / ".." / "assets/models/sponza-png.glb");
+
+    for (const auto& candidate : candidates) {
+        if (std::filesystem::exists(candidate)) {
+            return candidate.string();
+        }
+    }
+    return {};
+}
 
 TEST_SUITE("Handle") {
     TEST_CASE("default handle is invalid") {
@@ -179,5 +219,82 @@ TEST_SUITE("TextureImporter") {
         firefly::TextureImporter importer;
         auto result = importer.load("nonexistent_image.png");
         CHECK(result == nullptr);
+    }
+}
+
+TEST_SUITE("ModelImporter") {
+    TEST_CASE("ModelData type name") {
+        firefly::ModelData model;
+        CHECK(model.type_name() == "ModelData");
+        CHECK(model.total_vertex_count() == 0);
+        CHECK(model.total_index_count() == 0);
+    }
+
+    TEST_CASE("load nonexistent model returns null") {
+        firefly::ModelImporter importer;
+        auto result = importer.load("nonexistent_model.obj");
+        CHECK(result == nullptr);
+    }
+
+    TEST_CASE("load bundled cube model") {
+        firefly::ModelImporter importer;
+        const auto modelPath = find_model_asset_path();
+        REQUIRE_FALSE(modelPath.empty());
+
+        auto resource = importer.load(modelPath);
+        REQUIRE(resource != nullptr);
+
+        auto* model = dynamic_cast<firefly::ModelData*>(resource.get());
+        REQUIRE(model != nullptr);
+        CHECK(model->meshes.size() >= 1);
+        CHECK(model->total_vertex_count() > 0);
+        CHECK(model->total_index_count() > 0);
+
+        const auto flattened = firefly::flatten_model(*model);
+        CHECK(flattened.vertices.size() == model->total_vertex_count());
+        CHECK(flattened.indices.size() == model->total_index_count());
+        CHECK(flattened.indices.size() % 3 == 0);
+        REQUIRE_FALSE(flattened.vertices.empty());
+        CHECK(flattened.vertices.front().color.a > 0.0f);
+    }
+
+    TEST_CASE("load sponza pbr glb when present") {
+        const auto sponzaPath = find_sponza_asset_path();
+        if (sponzaPath.empty()) {
+            INFO("Sponza asset not found, skipped: assets/models/sponza-png.glb");
+            return;
+        }
+
+        firefly::ModelImporter importer;
+        auto resource = importer.load(sponzaPath);
+        REQUIRE(resource != nullptr);
+
+        auto* model = dynamic_cast<firefly::ModelData*>(resource.get());
+        REQUIRE(model != nullptr);
+        CHECK(model->meshes.size() > 1);
+        CHECK(model->total_vertex_count() > 1000);
+        CHECK(model->total_index_count() > 3000);
+
+        const auto flattened = firefly::flatten_model(*model);
+        CHECK(flattened.vertices.size() == model->total_vertex_count());
+        CHECK(flattened.indices.size() == model->total_index_count());
+        REQUIRE_FALSE(flattened.vertices.empty());
+
+        firefly::f32 minLuminance = 1.0f;
+        firefly::f32 maxLuminance = 0.0f;
+        firefly::f32 minRoughness = 1.0f;
+        firefly::f32 maxRoughness = 0.0f;
+        for (size_t i = 0; i < flattened.vertices.size(); i += 257) {
+            const auto& c = flattened.vertices[i].color;
+            const firefly::f32 luminance = c.r * 0.2126f + c.g * 0.7152f + c.b * 0.0722f;
+            minLuminance = std::min(minLuminance, luminance);
+            maxLuminance = std::max(maxLuminance, luminance);
+            minRoughness = std::min(minRoughness, flattened.vertices[i].roughness);
+            maxRoughness = std::max(maxRoughness, flattened.vertices[i].roughness);
+        }
+        CHECK(maxLuminance - minLuminance > 0.05f);
+        CHECK(minRoughness >= 0.045f);
+        CHECK(maxRoughness <= 1.0f);
+        CHECK(maxRoughness >= minRoughness);
     }
 }

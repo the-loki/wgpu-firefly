@@ -41,6 +41,9 @@ struct VertexIn {
     @location(0) position : vec3<f32>,
     @location(1) normal : vec3<f32>,
     @location(2) uv : vec2<f32>,
+    @location(3) color : vec4<f32>,
+    @location(4) emissive : vec3<f32>,
+    @location(5) material : vec3<f32>, // x=metallic y=roughness z=ao
 };
 
 struct VertexOut {
@@ -51,6 +54,9 @@ struct VertexOut {
     @location(3) metallicRoughness : vec2<f32>,
     @location(4) lightClipPositionNear : vec4<f32>,
     @location(5) lightClipPositionFar : vec4<f32>,
+    @location(6) color : vec4<f32>,
+    @location(7) emissive : vec3<f32>,
+    @location(8) material : vec3<f32>,
 };
 
 @vertex
@@ -89,6 +95,9 @@ fn vs_main(input : VertexIn, @builtin(instance_index) instanceIndex : u32) -> Ve
     out.normal = normalize(worldNormal);
     out.uv = input.uv;
     out.metallicRoughness = vec2<f32>(metallic, roughness);
+    out.color = input.color;
+    out.emissive = input.emissive;
+    out.material = input.material;
     return out;
 }
 
@@ -196,10 +205,10 @@ fn sample_shadow_factor(
 
 @fragment
 fn fs_main(input : VertexOut) -> @location(0) vec4<f32> {
-    let albedo = uObject.baseColor.rgb;
-    let metallic = clamp(input.metallicRoughness.x, 0.0, 1.0);
-    let roughness = clamp(input.metallicRoughness.y, 0.045, 1.0);
-    let ao = clamp(uObject.material.z, 0.0, 1.0);
+    let albedo = uObject.baseColor.rgb * input.color.rgb;
+    let metallic = clamp(input.metallicRoughness.x * input.material.x * uObject.material.x, 0.0, 1.0);
+    let roughness = clamp(input.metallicRoughness.y * input.material.y * uObject.material.y, 0.045, 1.0);
+    let ao = clamp(input.material.z * uObject.material.z, 0.0, 1.0);
 
     let n = normalize(input.normal);
     let v = normalize(uGlobal.cameraPosition.xyz - input.worldPosition);
@@ -258,6 +267,8 @@ fn fs_main(input : VertexOut) -> @location(0) vec4<f32> {
     }
 
     let ambient = albedo * max(uGlobal.lightCounts.z, 0.0) * ao;
-    let color = max(ambient + direct + uObject.emissive.rgb, vec3<f32>(0.0, 0.0, 0.0));
-    return vec4<f32>(color, uObject.baseColor.a);
+    let color = max(
+        ambient + direct + (uObject.emissive.rgb + input.emissive),
+        vec3<f32>(0.0, 0.0, 0.0));
+    return vec4<f32>(color, uObject.baseColor.a * input.color.a);
 }

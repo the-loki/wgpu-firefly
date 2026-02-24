@@ -101,3 +101,8 @@ Desktop.ini
 # ===== 第三方依赖 =====
 !third_party/
 !third_party/**
+
+# ===== 示例模型资源 =====
+!assets/models/
+!assets/models/*.obj
+assets/models/*.glb

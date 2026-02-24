@@ -70,7 +70,18 @@ target_link_libraries(test_resource PRIVATE doctest firefly_resource)
 if(MSVC)
     target_compile_options(test_resource PRIVATE /W4 /utf-8)
 endif()
+target_compile_definitions(test_resource PRIVATE
+    FIREFLY_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+)
 add_test(NAME resource COMMAND test_resource)
+
+if(WIN32)
+    add_custom_command(TARGET test_resource POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${ASSIMP_NATIVE_DLL}"
+            $<TARGET_FILE_DIR:test_resource>
+    )
+endif()
 
 # Phase 7: Scene 模块测试
 add_executable(test_scene scene/test_scene.cpp)
