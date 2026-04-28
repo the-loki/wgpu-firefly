@@ -97,6 +97,9 @@ struct RenderConfig {
     u32 max_frames_in_flight = 2;
     bool enable_render_graph_diagnostics = false;
     u32 render_graph_diagnostics_interval_frames = 240;
+    bool enable_screenshot_hotkey = true;
+    i32 screenshot_hotkey = 293; // GLFW_KEY_F12
+    String screenshot_output_dir = "captures/firefly";
 };
 
 // RenderState uses type-erased device pointer to avoid circular dependency.

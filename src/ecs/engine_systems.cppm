@@ -26,6 +26,8 @@ struct RenderGraphRuntimeStats {
     -> RenderGraphRuntimeStats;
 [[nodiscard]] auto render_graph_runtime_stats_text(const flecs::world& world) -> String;
 [[nodiscard]] auto render_graph_full_debug_text(const flecs::world& world) -> String;
+[[nodiscard]] auto request_render_screenshot(flecs::world& world, const String& path) -> Result<void>;
+[[nodiscard]] auto consume_render_screenshot_error(flecs::world& world) -> String;
 
 // Register all engine systems into the world.
 // Requires engine phases and singleton components to be set up first.

@@ -11,11 +11,16 @@ import firefly.resource.model_importer;
 
 #include <flecs.h>
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <ctime>
 #include <filesystem>
 #include <GLFW/glfw3.h>
+#include <iomanip>
+#include "camera_controller.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 #include <memory>
+#include <sstream>
 #include <vector>
 
 static auto device_from(firefly::ecs::RenderState* rs) -> firefly::RenderDevice* {
@@ -38,6 +43,26 @@ static auto resolve_sponza_path() -> firefly::String {
         }
     }
     return {};
+}
+
+static auto build_screenshot_path() -> firefly::String {
+    const auto now = std::chrono::system_clock::now();
+    const auto nowTime = std::chrono::system_clock::to_time_t(now);
+    std::tm localTm{};
+#if defined(_WIN32)
+    localtime_s(&localTm, &nowTime);
+#else
+    localtime_r(&nowTime, &localTm);
+#endif
+    const auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(
+        now.time_since_epoch()) % 1000;
+
+    std::ostringstream oss;
+    oss << "captures/sponza/screenshot_";
+    oss << std::put_time(&localTm, "%Y%m%d_%H%M%S");
+    oss << '_' << std::setfill('0') << std::setw(3) << millis.count();
+    oss << ".bmp";
+    return oss.str();
 }
 
 static auto load_sponza_mesh(
@@ -90,24 +115,15 @@ struct SponzaViewerResources {
     glm::vec3 modelCenter{0.0f};
     firefly::f32 modelScale = 1.0f;
     bool modelLoaded = false;
-    glm::vec3 cameraPosition{0.0f, 3.2f, 18.0f};
-    firefly::f32 cameraYaw = -90.0f;
-    firefly::f32 cameraPitch = -10.0f;
+    firefly::examples::sponza::FreeCameraState camera{
+        .position = glm::vec3(0.0f, 3.2f, 18.0f),
+        .orientation = firefly::examples::sponza::make_initial_orientation(-90.0f, -10.0f),
+        .pitchDeg = -10.0f,
+    };
     firefly::f32 moveSpeed = 8.0f;
     firefly::f32 sprintMultiplier = 3.0f;
     firefly::f32 mouseSensitivity = 0.085f;
 };
-
-static auto camera_forward(firefly::f32 yawDeg, firefly::f32 pitchDeg) -> glm::vec3 {
-    const firefly::f32 yawRad = glm::radians(yawDeg);
-    const firefly::f32 pitchRad = glm::radians(pitchDeg);
-    glm::vec3 forward{
-        std::cos(pitchRad) * std::cos(yawRad),
-        std::sin(pitchRad),
-        std::cos(pitchRad) * std::sin(yawRad),
-    };
-    return glm::normalize(forward);
-}
 
 static void update_view_and_object(
     SponzaViewerResources& resources,
@@ -144,13 +160,14 @@ static void update_view_and_object(
     }
 
     if (rightMouseDown && !rightMousePressed && input) {
-        resources.cameraYaw += static_cast<firefly::f32>(input->mouse_delta.first) * resources.mouseSensitivity;
-        resources.cameraPitch -= static_cast<firefly::f32>(input->mouse_delta.second) * resources.mouseSensitivity;
-        resources.cameraPitch = std::clamp(resources.cameraPitch, -89.0f, 89.0f);
+        firefly::examples::sponza::apply_mouse_look(
+            resources.camera,
+            static_cast<firefly::f32>(input->mouse_delta.first),
+            static_cast<firefly::f32>(input->mouse_delta.second),
+            resources.mouseSensitivity);
     }
 
-    glm::vec3 viewForward = camera_forward(resources.cameraYaw, resources.cameraPitch);
-    const glm::vec3 right = glm::normalize(glm::cross(viewForward, worldUp));
+    const auto basis = firefly::examples::sponza::camera_basis(resources.camera);
 
     if (input && rightMouseDown && deltaSeconds > 0.0f) {
         firefly::f32 speed = resources.moveSpeed;
@@ -162,16 +179,16 @@ static void update_view_and_object(
 
         glm::vec3 movement(0.0f);
         if (input->is_key_down(firefly::ecs::Key::W)) {
-            movement += viewForward;
+            movement += basis.moveForward;
         }
         if (input->is_key_down(firefly::ecs::Key::S)) {
-            movement -= viewForward;
+            movement -= basis.moveForward;
         }
         if (input->is_key_down(firefly::ecs::Key::D)) {
-            movement += right;
+            movement += basis.moveRight;
         }
         if (input->is_key_down(firefly::ecs::Key::A)) {
-            movement -= right;
+            movement -= basis.moveRight;
         }
         if (input->is_key_down(firefly::ecs::Key::E) ||
             input->is_key_down(firefly::ecs::Key::Space)) {
@@ -184,21 +201,24 @@ static void update_view_and_object(
         }
 
         if (glm::dot(movement, movement) > 1e-6f) {
-            resources.cameraPosition += glm::normalize(movement) * speed;
+            resources.camera.position += glm::normalize(movement) * speed;
         }
     }
 
-    viewForward = camera_forward(resources.cameraYaw, resources.cameraPitch);
+    const auto viewBasis = firefly::examples::sponza::camera_basis(resources.camera);
     const firefly::f32 aspect = window.height > 0
         ? static_cast<firefly::f32>(window.width) / static_cast<firefly::f32>(window.height)
         : (16.0f / 9.0f);
 
     firefly::Camera camera;
     camera.set_perspective(60.0f, aspect, 0.1f, 300.0f);
-    camera.look_at(resources.cameraPosition, resources.cameraPosition + viewForward, worldUp);
+    camera.look_at(
+        resources.camera.position,
+        resources.camera.position + viewBasis.viewForward,
+        worldUp);
     resources.forward->set_view_params({
         .viewProjection = camera.view_projection(),
-        .cameraWorldPosition = resources.cameraPosition,
+        .cameraWorldPosition = resources.camera.position,
     });
 
     firefly::ForwardObjectParams object{};
@@ -283,7 +303,7 @@ int main() {
                     indices.size(),
                     resources.modelScale);
                 firefly::Logger::info(
-                    "Sponza UE camera: hold RMB + mouse look, hold RMB + WASD fly, Q/E down/up, Shift speed up, wheel adjust speed");
+                    "Sponza UE camera: hold RMB + mouse look, hold RMB + WASD fly, Q/E down/up, Shift speed up, wheel adjust speed, press P to capture screenshot");
 
                 resources.forward->set_directional_lights({
                     {
@@ -340,11 +360,30 @@ int main() {
                 auto* resources = w.get_mut<SponzaViewerResources>();
                 const auto* window = w.get<firefly::ecs::WindowState>();
                 const auto* input = w.get<firefly::ecs::InputState>();
+                auto* render = w.get_mut<firefly::ecs::RenderState>();
                 if (!resources || !resources->forward || !resources->modelLoaded || !window) {
                     return;
                 }
                 if (window->width == 0 || window->height == 0) {
                     return;
+                }
+
+                auto* device = render ? device_from(render) : nullptr;
+                if (device) {
+                    if (const auto screenshotError = device->take_last_screenshot_error();
+                        !screenshotError.empty()) {
+                        firefly::Logger::error("Screenshot failed: {}", screenshotError);
+                    }
+                    if (input && input->is_key_pressed(firefly::ecs::Key::P)) {
+                        const auto path = build_screenshot_path();
+                        const auto requestResult = device->request_screenshot(path);
+                        if (requestResult.is_error()) {
+                            firefly::Logger::error(
+                                "Failed to request screenshot: {}", requestResult.error());
+                        } else {
+                            firefly::Logger::info("Screenshot requested: {}", path);
+                        }
+                    }
                 }
 
                 update_view_and_object(*resources, *window, input, static_cast<firefly::f32>(it.delta_time()));

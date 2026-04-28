@@ -20,6 +20,9 @@ struct AppConfig {
     bool enable_validation = true;
     bool enable_render_graph_diagnostics = false;
     u32 render_graph_diagnostics_interval_frames = 240;
+    bool enable_screenshot_hotkey = true;
+    i32 screenshot_hotkey = 293; // GLFW_KEY_F12
+    String screenshot_output_dir = "captures/firefly";
 };
 
 class App {

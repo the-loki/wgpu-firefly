@@ -73,6 +73,9 @@ void App::init_singleton_components() {
         .enable_vsync = m_config.vsync,
         .enable_render_graph_diagnostics = m_config.enable_render_graph_diagnostics,
         .render_graph_diagnostics_interval_frames = m_config.render_graph_diagnostics_interval_frames,
+        .enable_screenshot_hotkey = m_config.enable_screenshot_hotkey,
+        .screenshot_hotkey = m_config.screenshot_hotkey,
+        .screenshot_output_dir = m_config.screenshot_output_dir,
     });
     m_world.set<ecs::WindowState>({});
     m_world.set<ecs::InputState>({});

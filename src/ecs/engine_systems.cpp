@@ -2,6 +2,9 @@ module;
 #include <flecs.h>
 #include <GLFW/glfw3.h>
 #include <algorithm>
+#include <chrono>
+#include <ctime>
+#include <iomanip>
 #include <memory>
 #include <sstream>
 #ifdef _WIN32
@@ -186,6 +189,38 @@ static auto get_graph(RenderState* state) -> RenderGraph* {
     return static_cast<RenderGraph*>(state->graph.get());
 }
 
+static auto build_screenshot_path(const RenderConfig* config) -> String {
+    const String outputDir =
+        (config && !config->screenshot_output_dir.empty())
+        ? config->screenshot_output_dir
+        : String("captures/firefly");
+
+    const auto now = std::chrono::system_clock::now();
+    const auto nowTime = std::chrono::system_clock::to_time_t(now);
+    std::tm localTm{};
+#if defined(_WIN32)
+    localtime_s(&localTm, &nowTime);
+#else
+    localtime_r(&nowTime, &localTm);
+#endif
+    const auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(
+        now.time_since_epoch()) % 1000;
+
+    std::ostringstream oss;
+    oss << outputDir << "/screenshot_";
+    oss << std::put_time(&localTm, "%Y%m%d_%H%M%S");
+    oss << '_' << std::setfill('0') << std::setw(3) << millis.count();
+    oss << ".bmp";
+    return oss.str();
+}
+
+static auto is_key_just_pressed(const InputState* input, i32 key) -> bool {
+    if (!input || key < 0 || key >= InputState::MAX_KEYS) {
+        return false;
+    }
+    return input->current_keys[key] && !input->previous_keys[key];
+}
+
 static void render_init(flecs::iter& it) {
     auto world = it.world();
     const auto* win = world.get<WindowState>();
@@ -223,9 +258,37 @@ static void render_begin(flecs::iter& it) {
     auto* state = world.get_mut<RenderState>();
     if (!state || !state->initialized) return;
 
+    auto* device = get_device(state);
+    if (!device) return;
+
     const auto* win = world.get<WindowState>();
     if (win && win->resized && win->width > 0 && win->height > 0) {
-        get_device(state)->configure_surface(win->width, win->height);
+        device->configure_surface(win->width, win->height);
+    }
+
+    if (const auto screenshotError = device->take_last_screenshot_error();
+        !screenshotError.empty()) {
+        Logger::error("Screenshot failed: {}", screenshotError);
+    }
+
+    const auto* config = world.get<RenderConfig>();
+    const bool enableHotkey = config ? config->enable_screenshot_hotkey : true;
+    if (!enableHotkey) {
+        return;
+    }
+
+    const auto* input = world.get<InputState>();
+    const i32 hotkey = config ? config->screenshot_hotkey : 293;
+    if (!is_key_just_pressed(input, hotkey)) {
+        return;
+    }
+
+    const auto path = build_screenshot_path(config);
+    const auto requestResult = device->request_screenshot(path);
+    if (requestResult.is_error()) {
+        Logger::error("Failed to request screenshot: {}", requestResult.error());
+    } else {
+        Logger::info("Screenshot requested: {}", path);
     }
 }
 
@@ -382,6 +445,30 @@ auto render_graph_full_debug_text(const flecs::world& world) -> String {
     }
     ss << "\n" << reportResult.value();
     return ss.str();
+}
+
+auto request_render_screenshot(flecs::world& world, const String& path) -> Result<void> {
+    auto* state = world.get_mut<RenderState>();
+    if (!state || !state->initialized) {
+        return Result<void>::error("Render state is not initialized");
+    }
+    auto* device = get_device(state);
+    if (!device) {
+        return Result<void>::error("Render device is unavailable");
+    }
+    return device->request_screenshot(path);
+}
+
+auto consume_render_screenshot_error(flecs::world& world) -> String {
+    auto* state = world.get_mut<RenderState>();
+    if (!state || !state->initialized) {
+        return {};
+    }
+    auto* device = get_device(state);
+    if (!device) {
+        return {};
+    }
+    return device->take_last_screenshot_error();
 }
 
 // ============ Registration ============

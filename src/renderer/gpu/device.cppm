@@ -42,6 +42,9 @@ public:
     auto begin_frame() -> CommandBuffer*;
     void end_frame();
     void present();
+    auto request_screenshot(const String& path) -> Result<void>;
+    [[nodiscard]] auto has_pending_screenshot() const -> bool;
+    auto take_last_screenshot_error() -> String;
 
     void configure_surface(u32 width, u32 height);
 
@@ -67,6 +70,8 @@ private:
     u32 m_width = 0;
     u32 m_height = 0;
     bool m_initialized = false;
+    String m_pendingScreenshotPath;
+    String m_lastScreenshotError;
 };
 
 } // namespace firefly

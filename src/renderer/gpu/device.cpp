@@ -6,6 +6,8 @@ module;
 #include <memory>
 #include <cstring>
 #include <vector>
+#include <fstream>
+#include <filesystem>
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -147,6 +149,110 @@ static auto to_wgpu_vertex_step_mode(VertexStepMode mode) -> WGPUVertexStepMode 
     }
 }
 
+static auto align_to(u32 value, u32 alignment) -> u32 {
+    if (alignment == 0) {
+        return value;
+    }
+    const auto remainder = value % alignment;
+    if (remainder == 0) {
+        return value;
+    }
+    return value + (alignment - remainder);
+}
+
+static auto save_bmp_from_bgra(
+    const String& path,
+    u32 width,
+    u32 height,
+    const std::vector<u8>& bgraData) -> Result<void> {
+    if (path.empty()) {
+        return Result<void>::error("Screenshot path is empty");
+    }
+    if (width == 0 || height == 0) {
+        return Result<void>::error("Screenshot size is invalid");
+    }
+    const u64 requiredBytes = static_cast<u64>(width) * static_cast<u64>(height) * 4u;
+    if (bgraData.size() < requiredBytes) {
+        return Result<void>::error("Screenshot data size is invalid");
+    }
+
+    const std::filesystem::path targetPath(path);
+    if (targetPath.has_parent_path()) {
+        std::error_code ec;
+        std::filesystem::create_directories(targetPath.parent_path(), ec);
+        if (ec) {
+            return Result<void>::error("Failed to create screenshot directory: " + ec.message());
+        }
+    }
+
+    const u32 outputRowBytes = align_to(width * 3u, 4u);
+    const u32 pixelDataBytes = outputRowBytes * height;
+    const u32 headerBytes = 14u + 40u;
+    const u32 fileSize = headerBytes + pixelDataBytes;
+
+    std::ofstream file(path, std::ios::binary);
+    if (!file.is_open()) {
+        return Result<void>::error("Failed to open screenshot file: " + path);
+    }
+
+    auto write_u16 = [&file](u16 value) {
+        const char bytes[2] = {
+            static_cast<char>(value & 0xFFu),
+            static_cast<char>((value >> 8u) & 0xFFu),
+        };
+        file.write(bytes, 2);
+    };
+    auto write_u32 = [&file](u32 value) {
+        const char bytes[4] = {
+            static_cast<char>(value & 0xFFu),
+            static_cast<char>((value >> 8u) & 0xFFu),
+            static_cast<char>((value >> 16u) & 0xFFu),
+            static_cast<char>((value >> 24u) & 0xFFu),
+        };
+        file.write(bytes, 4);
+    };
+    auto write_i32 = [&write_u32](i32 value) {
+        write_u32(static_cast<u32>(value));
+    };
+
+    // BITMAPFILEHEADER
+    write_u16(0x4D42u); // "BM"
+    write_u32(fileSize);
+    write_u16(0u);
+    write_u16(0u);
+    write_u32(headerBytes);
+
+    // BITMAPINFOHEADER
+    write_u32(40u);
+    write_i32(static_cast<i32>(width));
+    write_i32(static_cast<i32>(height)); // bottom-up
+    write_u16(1u);
+    write_u16(24u);
+    write_u32(0u); // BI_RGB
+    write_u32(pixelDataBytes);
+    write_i32(2835); // 72 DPI
+    write_i32(2835);
+    write_u32(0u);
+    write_u32(0u);
+
+    std::vector<u8> row(outputRowBytes, 0u);
+    for (u32 y = 0; y < height; ++y) {
+        const u32 srcY = height - 1u - y;
+        const auto* src = bgraData.data() + static_cast<size_t>(srcY) * width * 4u;
+        for (u32 x = 0; x < width; ++x) {
+            row[x * 3u + 0u] = src[x * 4u + 0u];
+            row[x * 3u + 1u] = src[x * 4u + 1u];
+            row[x * 3u + 2u] = src[x * 4u + 2u];
+        }
+        file.write(reinterpret_cast<const char*>(row.data()), outputRowBytes);
+    }
+
+    if (!file.good()) {
+        return Result<void>::error("Failed while writing screenshot file: " + path);
+    }
+    return Result<void>::ok();
+}
+
 RenderDevice::RenderDevice() = default;
 
 RenderDevice::~RenderDevice() {
@@ -254,6 +360,8 @@ void RenderDevice::shutdown() {
     if (m_surface) { wgpuSurfaceRelease(static_cast<WGPUSurface>(m_surface)); m_surface = nullptr; }
     if (m_instance) { wgpuInstanceRelease(static_cast<WGPUInstance>(m_instance)); m_instance = nullptr; }
     m_initialized = false;
+    m_pendingScreenshotPath.clear();
+    m_lastScreenshotError.clear();
 }
 
 void RenderDevice::configure_surface(u32 width, u32 height) {
@@ -262,7 +370,7 @@ void RenderDevice::configure_surface(u32 width, u32 height) {
     WGPUSurfaceConfiguration surfConfig{};
     surfConfig.device = static_cast<WGPUDevice>(m_device);
     surfConfig.format = to_wgpu_texture_format(m_surfaceFormat);
-    surfConfig.usage = WGPUTextureUsage_RenderAttachment;
+    surfConfig.usage = WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_CopySrc;
     surfConfig.width = width;
     surfConfig.height = height;
     surfConfig.presentMode = WGPUPresentMode_Fifo;
@@ -486,6 +594,144 @@ void RenderDevice::end_frame() {
     auto cmdBuf = static_cast<WGPUCommandBuffer>(m_commandBuffer->finish());
     wgpuQueueSubmit(static_cast<WGPUQueue>(m_queue), 1, &cmdBuf);
     wgpuCommandBufferRelease(cmdBuf);
+
+    if (!m_pendingScreenshotPath.empty()) {
+        if (!m_currentTexture || !m_device || !m_instance) {
+            m_lastScreenshotError = "Screenshot failed: current frame is unavailable";
+            m_pendingScreenshotPath.clear();
+        } else {
+            const u32 width = m_width;
+            const u32 height = m_height;
+            if (width == 0 || height == 0) {
+                m_lastScreenshotError = "Screenshot failed: surface size is zero";
+                m_pendingScreenshotPath.clear();
+            } else {
+                const u32 bytesPerPixel = 4u;
+                const u32 unpaddedRowBytes = width * bytesPerPixel;
+                const u32 paddedRowBytes = align_to(unpaddedRowBytes, 256u);
+                const u64 bufferSize = static_cast<u64>(paddedRowBytes) * static_cast<u64>(height);
+
+                WGPUBufferDescriptor readbackDesc{};
+                readbackDesc.label = toSV("ScreenshotReadbackBuffer");
+                readbackDesc.size = bufferSize;
+                readbackDesc.usage = WGPUBufferUsage_CopyDst | WGPUBufferUsage_MapRead;
+                auto readbackBuffer = wgpuDeviceCreateBuffer(
+                    static_cast<WGPUDevice>(m_device), &readbackDesc);
+                if (!readbackBuffer) {
+                    m_lastScreenshotError = "Screenshot failed: cannot create readback buffer";
+                    m_pendingScreenshotPath.clear();
+                } else {
+                    WGPUCommandEncoderDescriptor encoderDesc{};
+                    encoderDesc.label = toSV("ScreenshotEncoder");
+                    auto screenshotEncoder = wgpuDeviceCreateCommandEncoder(
+                        static_cast<WGPUDevice>(m_device), &encoderDesc);
+                    if (!screenshotEncoder) {
+                        m_lastScreenshotError = "Screenshot failed: cannot create command encoder";
+                        wgpuBufferRelease(readbackBuffer);
+                        m_pendingScreenshotPath.clear();
+                        m_commandBuffer.reset();
+                        return;
+                    }
+
+                    WGPUTexelCopyTextureInfo source{};
+                    source.texture = static_cast<WGPUTexture>(m_currentTexture);
+                    source.mipLevel = 0;
+                    source.origin = {0, 0, 0};
+                    source.aspect = WGPUTextureAspect_All;
+
+                    WGPUTexelCopyBufferInfo destination{};
+                    destination.buffer = readbackBuffer;
+                    destination.layout.offset = 0;
+                    destination.layout.bytesPerRow = paddedRowBytes;
+                    destination.layout.rowsPerImage = height;
+
+                    WGPUExtent3D copySize{};
+                    copySize.width = width;
+                    copySize.height = height;
+                    copySize.depthOrArrayLayers = 1;
+
+                    wgpuCommandEncoderCopyTextureToBuffer(
+                        screenshotEncoder, &source, &destination, &copySize);
+                    auto screenshotCmd = wgpuCommandEncoderFinish(screenshotEncoder, nullptr);
+                    wgpuCommandEncoderRelease(screenshotEncoder);
+                    if (!screenshotCmd) {
+                        m_lastScreenshotError = "Screenshot failed: cannot finish command buffer";
+                        wgpuBufferRelease(readbackBuffer);
+                        m_pendingScreenshotPath.clear();
+                        m_commandBuffer.reset();
+                        return;
+                    }
+                    wgpuQueueSubmit(static_cast<WGPUQueue>(m_queue), 1, &screenshotCmd);
+                    wgpuCommandBufferRelease(screenshotCmd);
+
+                    struct MapState {
+                        bool done = false;
+                        WGPUMapAsyncStatus status = WGPUMapAsyncStatus_Unknown;
+                        String message;
+                    };
+                    MapState mapState{};
+
+                    WGPUBufferMapCallbackInfo mapCbInfo{};
+                    mapCbInfo.mode = WGPUCallbackMode_AllowProcessEvents;
+                    mapCbInfo.callback = [](WGPUMapAsyncStatus status, WGPUStringView message, void* ud1, void*) {
+                        auto* state = static_cast<MapState*>(ud1);
+                        state->status = status;
+                        if (message.data && message.length > 0) {
+                            state->message.assign(message.data, message.length);
+                        }
+                        state->done = true;
+                    };
+                    mapCbInfo.userdata1 = &mapState;
+                    wgpuBufferMapAsync(readbackBuffer, WGPUMapMode_Read, 0, bufferSize, mapCbInfo);
+
+                    constexpr int maxPollIterations = 20000;
+                    int pollCount = 0;
+                    while (!mapState.done && pollCount < maxPollIterations) {
+                        wgpuDevicePoll(static_cast<WGPUDevice>(m_device), false, nullptr);
+                        wgpuInstanceProcessEvents(static_cast<WGPUInstance>(m_instance));
+                        ++pollCount;
+                    }
+
+                    if (!mapState.done) {
+                        m_lastScreenshotError = "Screenshot failed: map callback timed out";
+                    } else if (mapState.status != WGPUMapAsyncStatus_Success) {
+                        m_lastScreenshotError = "Screenshot failed: map_async status=" +
+                            std::to_string(static_cast<int>(mapState.status));
+                        if (!mapState.message.empty()) {
+                            m_lastScreenshotError += " message=" + mapState.message;
+                        }
+                    } else {
+                        const auto* mapped = static_cast<const u8*>(
+                            wgpuBufferGetConstMappedRange(readbackBuffer, 0, bufferSize));
+                        if (!mapped) {
+                            m_lastScreenshotError = "Screenshot failed: mapped range is null";
+                        } else {
+                            std::vector<u8> pixels(static_cast<size_t>(width) * height * bytesPerPixel);
+                            for (u32 y = 0; y < height; ++y) {
+                                const auto* srcRow = mapped + static_cast<size_t>(y) * paddedRowBytes;
+                                auto* dstRow = pixels.data() + static_cast<size_t>(y) * unpaddedRowBytes;
+                                std::memcpy(dstRow, srcRow, unpaddedRowBytes);
+                            }
+                            const auto saveResult = save_bmp_from_bgra(
+                                m_pendingScreenshotPath, width, height, pixels);
+                            if (saveResult.is_error()) {
+                                m_lastScreenshotError = saveResult.error();
+                            } else {
+                                m_lastScreenshotError.clear();
+                            }
+                        }
+                    }
+
+                    if (wgpuBufferGetMapState(readbackBuffer) == WGPUBufferMapState_Mapped) {
+                        wgpuBufferUnmap(readbackBuffer);
+                    }
+                    wgpuBufferRelease(readbackBuffer);
+                    m_pendingScreenshotPath.clear();
+                }
+            }
+        }
+    }
+
     m_commandBuffer.reset();
 }
 
@@ -501,6 +747,30 @@ void RenderDevice::present() {
         wgpuTextureRelease(static_cast<WGPUTexture>(m_currentTexture));
         m_currentTexture = nullptr;
     }
+}
+
+auto RenderDevice::request_screenshot(const String& path) -> Result<void> {
+    if (path.empty()) {
+        return Result<void>::error("Screenshot path cannot be empty");
+    }
+    if (!m_initialized) {
+        return Result<void>::error("RenderDevice is not initialized");
+    }
+    if (!m_pendingScreenshotPath.empty()) {
+        return Result<void>::error("A screenshot request is already pending");
+    }
+    m_pendingScreenshotPath = path;
+    return Result<void>::ok();
+}
+
+auto RenderDevice::has_pending_screenshot() const -> bool {
+    return !m_pendingScreenshotPath.empty();
+}
+
+auto RenderDevice::take_last_screenshot_error() -> String {
+    auto err = m_lastScreenshotError;
+    m_lastScreenshotError.clear();
+    return err;
 }
 
 } // namespace firefly

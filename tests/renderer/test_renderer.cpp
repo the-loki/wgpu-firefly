@@ -18,6 +18,7 @@ import firefly.core.types;
 #include <glm/gtc/matrix_transform.hpp>
 #include <cmath>
 #include <string>
+#include "../../examples/sponza_viewer/camera_controller.hpp"
 
 // ============================================================
 // Phase 5: Renderer 模块测试 (不需要 GPU 的部分)
@@ -174,6 +175,31 @@ TEST_SUITE("Camera") {
         auto vp = cam.view_projection();
         CHECK(vp != glm::mat4(1.0f));
     }
+
+    TEST_CASE("sponza camera right strafe direction is consistent") {
+        firefly::examples::sponza::FreeCameraState state;
+        state.orientation = firefly::examples::sponza::make_initial_orientation(-90.0f, -10.0f);
+
+        const auto basis = firefly::examples::sponza::camera_basis(state);
+        CHECK(basis.moveRight.x == doctest::Approx(-1.0f).epsilon(0.02f));
+        CHECK(basis.moveRight.y == doctest::Approx(0.0f).epsilon(0.02f));
+    }
+
+    TEST_CASE("sponza camera keeps valid movement basis near pitch clamp") {
+        firefly::examples::sponza::FreeCameraState state;
+        state.orientation = firefly::examples::sponza::make_initial_orientation(-90.0f, -10.0f);
+
+        firefly::examples::sponza::apply_mouse_look(state, 0.0f, -5000.0f, 0.085f);
+        CHECK(state.pitchDeg == doctest::Approx(89.0f).epsilon(0.001f));
+
+        const auto before = firefly::examples::sponza::camera_basis(state).moveForward;
+        firefly::examples::sponza::apply_mouse_look(state, 200.0f, 0.0f, 0.085f);
+        const auto afterBasis = firefly::examples::sponza::camera_basis(state);
+
+        CHECK(glm::length(afterBasis.moveForward) == doctest::Approx(1.0f).epsilon(0.001f));
+        CHECK(glm::length(afterBasis.moveRight) == doctest::Approx(1.0f).epsilon(0.001f));
+        CHECK(glm::length(afterBasis.moveForward - before) > 0.01f);
+    }
 }
 
 TEST_SUITE("Material") {
@@ -197,6 +223,18 @@ TEST_SUITE("RenderDevice") {
         CHECK(device.wgpu_surface() == nullptr);
         CHECK(device.surface_width() == 0);
         CHECK(device.surface_height() == 0);
+    }
+
+    TEST_CASE("screenshot request validates path and initialization") {
+        firefly::RenderDevice device;
+        CHECK(device.request_screenshot("").is_error());
+        CHECK(device.request_screenshot("captures/test.bmp").is_error());
+        CHECK_FALSE(device.has_pending_screenshot());
+    }
+
+    TEST_CASE("take_last_screenshot_error is empty by default") {
+        firefly::RenderDevice device;
+        CHECK(device.take_last_screenshot_error().empty());
     }
 }
 

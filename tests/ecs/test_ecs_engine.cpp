@@ -70,6 +70,9 @@ TEST_SUITE("EngineComponents") {
         CHECK(config.max_frames_in_flight == 2);
         CHECK_FALSE(config.enable_render_graph_diagnostics);
         CHECK(config.render_graph_diagnostics_interval_frames == 240);
+        CHECK(config.enable_screenshot_hotkey);
+        CHECK(config.screenshot_hotkey == 293);
+        CHECK(config.screenshot_output_dir == "captures/firefly");
     }
 
     TEST_CASE("RenderState defaults") {
@@ -263,5 +266,28 @@ TEST_SUITE("Engine RenderGraph Diagnostics") {
         CHECK(text.find("retireAfterSuccessFrame=13") != std::string::npos);
         CHECK(text.find("remainingSuccessFrames=3") != std::string::npos);
         CHECK(text.find("no active graph") != std::string::npos);
+    }
+
+    TEST_CASE("request_render_screenshot fails without render state") {
+        flecs::world world;
+        const auto result = firefly::ecs::request_render_screenshot(world, "captures/test.bmp");
+        CHECK(result.is_error());
+        CHECK(result.error().find("Render state") != std::string::npos);
+    }
+
+    TEST_CASE("request_render_screenshot fails when render not initialized") {
+        flecs::world world;
+        world.set<firefly::ecs::RenderState>({});
+        const auto result = firefly::ecs::request_render_screenshot(world, "captures/test.bmp");
+        CHECK(result.is_error());
+        CHECK(result.error().find("Render state") != std::string::npos);
+    }
+
+    TEST_CASE("consume_render_screenshot_error returns empty when unavailable") {
+        flecs::world world;
+        CHECK(firefly::ecs::consume_render_screenshot_error(world).empty());
+
+        world.set<firefly::ecs::RenderState>({});
+        CHECK(firefly::ecs::consume_render_screenshot_error(world).empty());
     }
 }
